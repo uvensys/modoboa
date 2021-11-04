@@ -7,14 +7,15 @@ ENV LC_ALL=en_US.UTF-8 \
     S6_VERSION=v2.2.0.3 \
     USER=modoboa
 
+RUN apt update && apt install locales -y && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen &&  locale-gen
+RUN adduser ${USER} --system --group
+
 # We copy just the requirements.txt first to leverage Docker cache
 COPY ./requirements.txt /build/requirements.txt
-COPY ./mysql-requirements.txt /build/mysql-requirements.txt
 
 # Get dependencies
-RUN apt update && apt install -y python3 python3-pip python3-rrdtool git python3-mysqldb 
+RUN apt install -y python3 python3-pip python3-rrdtool git python3-mysqldb gunicorn
 RUN python3 -m pip install --upgrade pip && python3 -m pip install -r /build/requirements.txt 
-#&& pip install -r /build/mysql-requirements.txt
 
 # Add s6 overlay, so we can manage multiple processes
 ADD https://github.com/just-containers/s6-overlay/releases/download/$S6_VERSION/s6-overlay-amd64-installer /tmp/
@@ -22,12 +23,22 @@ RUN chmod +x /tmp/s6-overlay-amd64-installer && /tmp/s6-overlay-amd64-installer 
 
 
 RUN mkdir /code
-WORKDIR /code
+#WORKDIR /code
 COPY . /code
 COPY ./bin/ /usr/local/bin
 COPY docker/entrypoint.sh /usr/bin/entrypoint.sh
 
-RUN python3 -m pip install .
+RUN cd code && python3 -m pip install .
+
+# Create service script for gunicorn
+RUN mkdir /etc/services.d/gunicorn && \
+    echo '#!/usr/bin/execlineb -P\nwith-contenv\n' > /etc/services.d/gunicorn/run && \
+    echo "s6-setuidgid $USER" >> /etc/services.d/gunicorn/run && \
+    echo '\n/usr/bin/entrypoint.sh gunicorn' >> /etc/services.d/gunicorn/run && \
+    chmod +x /etc/services.d/gunicorn/run
+
+
+RUN mkdir /app && chown $USER /app
 
 EXPOSE 80/tcp
-CMD ["/usr/bin/entrypoint.sh"]
+ENTRYPOINT ["/init"]
