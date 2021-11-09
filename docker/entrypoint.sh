@@ -5,14 +5,15 @@ ADMIN_BIN="/usr/local/bin/modoboa-admin.py"
 WORK_DIR="/app"
 DB_URL="${DB_URL:-sqlite:///db.sqlite}"
 INSTANCE_NAME="${INSTANCE_NAME:-default}"
-DOMAIN="${DOMAIN:-modoboa.local}"
+DOMAIN="${DOMAIN:-*}"
 GUNICORN_TIMEOUT="${GUNICORN_TIMEOUT:-120}"
 GUNICORN_WORKERS="${GUNICORN_WORKERS:-4}"
-GUNICORN_LOGLEVEL="${GUNICORN_LOGLEVEL:-info}"
-BIND_ADDRESS="${BIND_ADDRESS:-0.0.0.0:80}"
+GUNICORN_LOGLEVEL="${GUNICORN_LOGLEVEL:-debug}"
+#BIND_ADDRESS="${BIND_ADDRESS:-0.0.0.0:8080}"
+BIND_ADDRESS="${BIND_ADDRESS:-unix:/run/gunicorn/modoboa.sock}"
 
 GUNICORN_ARGS="-t ${GUNICORN_TIMEOUT} --workers ${GUNICORN_WORKERS} --bind ${BIND_ADDRESS} --log-level ${GUNICORN_LOGLEVEL} $INSTANCE_NAME.wsgi:application"
-CREATE_CMD="$ADMIN_BIN deploy $INSTANCE_NAME --dburl default:$DB_URL --domain $DOMAIN"
+CREATE_CMD="$ADMIN_BIN deploy ${INSTANCE_NAME} --collectstatic --dburl default:$DB_URL --domain $DOMAIN"
 
 if [ "$1" == gunicorn ]; then
     #/bin/sh -c "flask db upgrade"
@@ -25,9 +26,9 @@ if [ "$1" == gunicorn ]; then
         exec $CREATE_CMD
     fi
     echo "$@" $GUNICORN_ARGS
-    #exec "$@" $GUNICORN_ARGS
     cd /app/default
-    gunicorn default.wsgi:application
+    exec "$@" $GUNICORN_ARGS
+    #gunicorn default.wsgi:application
 
 else
     exec "$@"
