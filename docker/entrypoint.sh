@@ -12,7 +12,7 @@ GUNICORN_LOGLEVEL="${GUNICORN_LOGLEVEL:-debug}"
 #BIND_ADDRESS="${BIND_ADDRESS:-0.0.0.0:8080}"
 BIND_ADDRESS="${BIND_ADDRESS:-unix:/run/gunicorn/modoboa.sock}"
 
-GUNICORN_ARGS="-t ${GUNICORN_TIMEOUT} --workers ${GUNICORN_WORKERS} --bind ${BIND_ADDRESS} --log-level ${GUNICORN_LOGLEVEL} $INSTANCE_NAME.wsgi:application"
+GUNICORN_ARGS="-t ${GUNICORN_TIMEOUT} --workers ${GUNICORN_WORKERS} --bind ${BIND_ADDRESS} --log-level ${GUNICORN_LOGLEVEL} --log-config $INSTANCE_NAME/logging.conf $INSTANCE_NAME.wsgi:application"
 CREATE_CMD="$ADMIN_BIN deploy ${INSTANCE_NAME} --collectstatic --dburl default:$DB_URL --domain $DOMAIN"
 
 if [ "$1" == gunicorn ]; then
@@ -24,9 +24,11 @@ if [ "$1" == gunicorn ]; then
         echo "Creating it"
         echo "$CREATE_CMD"
         exec $CREATE_CMD
+	# copy logging conf
+	cp /logging.conf "$WORK_DIR/$INSTANCE_NAME"
     fi
     echo "$@" $GUNICORN_ARGS
-    cd /app/default
+    cd "$WORK_DIR/$INSTANCE_NAME"
     exec "$@" $GUNICORN_ARGS
     #gunicorn default.wsgi:application
 

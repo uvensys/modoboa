@@ -5,17 +5,19 @@ ENV LC_ALL=en_US.UTF-8 \
     LANG=en_US.UTF-8 \
     LANGUAGE=en_US.UTF-8 \
     S6_VERSION=v2.2.0.3 \
-    USER=modoboa
+    USER=modoboa \
+    UID=1001
 
 RUN apt update && apt install locales -y && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen &&  locale-gen
-RUN adduser ${USER} --system --group
+RUN adduser ${USER} --system --group --uid ${UID}
 
 # We copy just the requirements.txt first to leverage Docker cache
 COPY ./requirements.txt /build/requirements.txt
 
 # Get dependencies
-RUN apt install -y nginx python3 python3-pip python3-rrdtool git python3-mysqldb gunicorn
+RUN apt install -y nginx python3 python3-pip python3-rrdtool git python3-mysqldb gunicorn rrdtool build-essential libsasl2-dev libldap2-dev libssl-dev
 RUN python3 -m pip install --upgrade pip && python3 -m pip install -r /build/requirements.txt 
+RUN python3 -m pip install json-logging-py
 
 # Add s6 overlay, so we can manage multiple processes
 ADD https://github.com/just-containers/s6-overlay/releases/download/$S6_VERSION/s6-overlay-amd64-installer /tmp/
@@ -27,6 +29,7 @@ RUN mkdir /code
 COPY . /code
 COPY ./bin/ /usr/local/bin
 COPY docker/entrypoint.sh /usr/bin/entrypoint.sh
+COPY docker/logging.conf /logging.conf
 
 RUN cd code && python3 -m pip install .
 
